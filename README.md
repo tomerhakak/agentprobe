@@ -286,6 +286,51 @@ pip install agentprobe[dashboard]
 pip install agentprobe[all]
 ```
 
+## AgentProbe Pro
+
+Take your agent testing to the next level with Pro-exclusive features:
+
+| Feature | Description |
+|---------|-------------|
+| **Agent Battle Arena** | Head-to-head agent comparison with battle reports |
+| **Agent Autopsy** | Forensic failure analysis with cause-of-death detection |
+| **Security Scorer** | 71 checks, 0-100 score, A-F grade across 4 categories |
+| **Cost X-Ray** | Per-step cost visualization with waste detection |
+| **Agent Diff** | Behavioral comparison between agent versions |
+| **Agent Changelog** | Auto-generated behavioral changelog |
+| **Agent Benchmark** | 6-dimension scoring: accuracy, cost, speed, safety, consistency, tool mastery |
+| **Full Fuzzer** | 47+ prompt injection variants, edge cases, tool failures |
+| **Brain** | Learns from your tests — recommends optimizations over time |
+| **Dashboard** | Local web UI with traces, costs, and trends |
+
+```python
+from agentprobe.arena import Arena
+from agentprobe.autopsy import AgentAutopsy
+from agentprobe.security import SecurityScorer
+from agentprobe.benchmark import AgentBenchmark
+
+# Battle two agents head-to-head
+arena = Arena()
+report = arena.battle(agent_a, agent_b, inputs=["Handle a refund", "Reset password"])
+
+# Forensic failure analysis
+autopsy = AgentAutopsy()
+report = autopsy.analyze(failed_recording)
+print(report.cause_of_death)  # "infinite_loop" | "cost_explosion" | "tool_misuse" | ...
+
+# Security score your agent
+scorer = SecurityScorer()
+score = scorer.score(recording)
+print(f"{score.grade}: {score.total}/100")  # "B+: 82/100"
+
+# Benchmark across 6 dimensions
+bench = AgentBenchmark()
+scorecard = bench.run(agent_fn)
+print(scorecard.overall_grade)  # "A-"
+```
+
+Learn more at [agentprobe.dev/pro](https://agentprobe.dev/pro)
+
 ## Examples
 
 See the [`examples/`](examples/) directory:
