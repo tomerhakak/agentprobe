@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentprobe"
-version = "0.1.0"
+version = "0.2.0"
 description = "pytest for AI Agents — Test, record, replay, and monitor AI agents locally."
 readme = "README.md"
 license = "MIT"
