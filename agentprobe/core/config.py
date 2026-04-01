@@ -48,6 +48,16 @@ class LocalModelSettings(BaseModel):
     ollama_url: str = "http://localhost:11434"
 
 
+class BrainSettings(BaseModel):
+    """Settings for the brain learning system (opt-in only)."""
+
+    enabled: bool = False  # opt-in only — no data collected unless True
+    sync_enabled: bool = False  # remote sync opt-in
+    sync_url: str = "https://brain.agentprobe.dev/api/v1"
+    db_path: str = ".agentprobe/brain.db"
+    queue_dir: str = ".agentprobe/brain_queue"
+
+
 class DashboardSettings(BaseModel):
     """Settings for the local dashboard server."""
 
@@ -101,6 +111,7 @@ class AgentProbeConfig(BaseModel):
         default_factory=dict,
         description="Custom per-model pricing overrides: {model: {input_per_1k: float, output_per_1k: float}}",
     )
+    brain: BrainSettings = Field(default_factory=BrainSettings)
     dashboard: DashboardSettings = Field(default_factory=DashboardSettings)
     ci: CISettings = Field(default_factory=CISettings)
 
