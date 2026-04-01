@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentprobe"
+version = "0.1.0"
+description = "pytest for AI Agents — Test, record, replay, and monitor AI agents locally."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "AgentProbe Team" },
+]
+keywords = ["ai", "agents", "testing", "llm", "evaluation", "observability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "click>=8.0",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "httpx>=0.25",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.30"]
+langchain = ["langchain-core>=0.2"]
+crewai = ["crewai>=0.50"]
+dashboard = [
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
+    "jinja2>=3.0",
+]
+local-eval = [
+    "sentence-transformers>=2.0",
+]
+all = [
+    "agentprobe[openai,anthropic,langchain,dashboard,local-eval]",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+agentprobe = "agentprobe.cli.main:cli"
+
+[project.entry-points.pytest11]
+agentprobe = "agentprobe.plugins.pytest_plugin"
+
+[project.urls]
+Homepage = "https://github.com/agentprobe/agentprobe"
+Documentation = "https://agentprobe.dev/docs"
+Repository = "https://github.com/agentprobe/agentprobe"
+Issues = "https://github.com/agentprobe/agentprobe/issues"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

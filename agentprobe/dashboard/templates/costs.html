@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}AgentProbe — Costs{% endblock %}
+{% block page_title %}Cost Analysis{% endblock %}
+
+{% block content %}
+<!-- Summary Cards -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+    <div class="card">
+        <div class="card-title">Total Cost</div>
+        <div class="card-value">{{ format_cost(stats.total_cost_usd) }}</div>
+        <div class="card-sub">across {{ stats.total_recordings }} recording{{ 's' if stats.total_recordings != 1 else '' }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Avg Cost / Run</div>
+        <div class="card-value">{{ format_cost(stats.avg_cost_usd) }}</div>
+        <div class="card-sub">per recording</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Total Tokens</div>
+        <div class="card-value">{{ "{:,}".format(stats.total_tokens) }}</div>
+        <div class="card-sub">avg {{ "{:,.0f}".format(stats.avg_tokens) }} / run</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Models Used</div>
+        <div class="card-value">{{ cost_by_model|length }}</div>
+        <div class="card-sub">unique models</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <!-- Cost by Model -->
+    <div class="card">
+        <div class="card-title">Cost by Model</div>
+        <div class="chart-container">
+            {% if cost_by_model %}
+            {% set max_model_cost = cost_by_model[0].total_cost if cost_by_model else 1 %}
+            <div style="margin-top:12px">
+                {% for item in cost_by_model %}
+                <div style="margin-bottom:12px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                        <span style="font-size:13px;color:#d1d5db">{{ item.model or '(unknown)' }}</span>
+                        <span style="font-size:13px;color:#9ca3af;font-family:monospace">{{ format_cost(item.total_cost) }}</span>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.04);border-radius:4px;height:8px;overflow:hidden">
+                        <div style="
+                            width:{{ (item.total_cost / max_model_cost * 100) if max_model_cost > 0 else 0 }}%;
+                            height:100%;
+                            background:linear-gradient(90deg,#6366f1,#818cf8);
+                            border-radius:4px;
+                            min-width:4px;
+                        "></div>
+                    </div>
+                    <div style="font-size:11px;color:#6b7280;margin-top:2px">{{ item.count }} recording{{ 's' if item.count != 1 else '' }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:30px"><p>No model data yet</p></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Cost Over Time -->
+    <div class="card">
+        <div class="card-title">Cost Over Time</div>
+        <div class="chart-container">
+            {% if cost_over_time and cost_over_time|length > 1 %}
+            {% set max_daily = cost_over_time|map(attribute='cost')|max %}
+            {% set point_count = cost_over_time|length %}
+            {% set chart_w = 440 %}
+            {% set chart_h = 180 %}
+            {% set pad_l = 10 %}
+            {% set pad_r = 10 %}
+            {% set pad_t = 10 %}
+            {% set pad_b = 30 %}
+            {% set plot_w = chart_w - pad_l - pad_r %}
+            {% set plot_h = chart_h - pad_t - pad_b %}
+            <svg width="100%" height="{{ chart_h }}" viewBox="0 0 {{ chart_w }} {{ chart_h }}" preserveAspectRatio="xMidYMid meet" style="margin-top:8px">
+                <!-- Grid lines -->
+                {% for i in range(5) %}
+                <line x1="{{ pad_l }}" y1="{{ pad_t + (plot_h / 4 * i) }}" x2="{{ chart_w - pad_r }}" y2="{{ pad_t + (plot_h / 4 * i) }}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                {% endfor %}
+
+                <!-- Area fill -->
+                <path d="
+                    M {{ pad_l }} {{ pad_t + plot_h }}
+                    {% for entry in cost_over_time %}
+                    L {{ pad_l + (loop.index0 / (point_count - 1) * plot_w) if point_count > 1 else pad_l }} {{ pad_t + plot_h - (entry.cost / max_daily * plot_h) if max_daily > 0 else pad_t + plot_h }}
+                    {% endfor %}
+                    L {{ pad_l + plot_w }} {{ pad_t + plot_h }}
+                    Z
+                " fill="url(#costGradient)" opacity="0.3"/>
+
+                <!-- Line -->
+                <polyline
+                    points="{% for entry in cost_over_time %}{{ pad_l + (loop.index0 / (point_count - 1) * plot_w) if point_count > 1 else pad_l }},{{ pad_t + plot_h - (entry.cost / max_daily * plot_h) if max_daily > 0 else pad_t + plot_h }} {% endfor %}"
+                    fill="none"
+                    stroke="#6366f1"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                />
+
+                <!-- Dots -->
+                {% for entry in cost_over_time %}
+                <circle
+                    cx="{{ pad_l + (loop.index0 / (point_count - 1) * plot_w) if point_count > 1 else pad_l }}"
+                    cy="{{ pad_t + plot_h - (entry.cost / max_daily * plot_h) if max_daily > 0 else pad_t + plot_h }}"
+                    r="3"
+                    fill="#6366f1"
+                    stroke="#030712"
+                    stroke-width="2"
+                >
+                    <title>{{ entry.day }}: {{ format_cost(entry.cost) }}</title>
+                </circle>
+                {% endfor %}
+
+                <!-- X-axis labels -->
+                {% for entry in cost_over_time %}
+                {% if loop.first or loop.last or loop.index0 % (point_count // 5 + 1) == 0 %}
+                <text
+                    x="{{ pad_l + (loop.index0 / (point_count - 1) * plot_w) if point_count > 1 else pad_l }}"
+                    y="{{ chart_h - 5 }}"
+                    text-anchor="middle"
+                    fill="#6b7280"
+                    font-size="9"
+                >{{ entry.day[5:] }}</text>
+                {% endif %}
+                {% endfor %}
+
+                <defs>
+                    <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#6366f1" stop-opacity="0.4"/>
+                        <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            {% elif cost_over_time and cost_over_time|length == 1 %}
+            <div style="padding:20px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:#f9fafb">{{ format_cost(cost_over_time[0].cost) }}</div>
+                <div style="font-size:13px;color:#6b7280;margin-top:4px">{{ cost_over_time[0].day }} ({{ cost_over_time[0].count }} run{{ 's' if cost_over_time[0].count != 1 else '' }})</div>
+            </div>
+            {% else %}
+            <div class="empty-state" style="padding:30px"><p>No cost data yet</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Top 10 Most Expensive -->
+<div class="card">
+    <div class="card-title" style="margin-bottom:12px">Top 10 Most Expensive Recordings</div>
+    {% if top_expensive %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Model</th>
+                <th>Cost</th>
+                <th>Duration</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rec in top_expensive %}
+            <tr class="clickable" onclick="window.location='/recordings/{{ rec.id }}'">
+                <td style="font-size:13px;color:#6b7280">{{ loop.index }}</td>
+                <td style="font-weight:500;color:#f3f4f6">{{ rec.name or rec.id[:12] }}</td>
+                <td style="font-size:13px;color:#9ca3af">{{ rec.model or '—' }}</td>
+                <td style="font-family:monospace;font-size:13px;color:#f87171">{{ format_cost(rec.cost) }}</td>
+                <td style="font-family:monospace;font-size:13px">{{ format_duration(rec.duration) }}</td>
+                <td style="font-size:13px;color:#9ca3af">{{ rec.created_at[:10] if rec.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+        </svg>
+        <h3>No cost data yet</h3>
+        <p>Record agent executions to see cost analysis here.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

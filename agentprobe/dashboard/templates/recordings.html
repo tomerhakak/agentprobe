@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}AgentProbe — {% if is_tests_view is defined and is_tests_view %}Tests{% else %}Recordings{% endif %}{% endblock %}
+{% block page_title %}{% if is_tests_view is defined and is_tests_view %}Tests{% else %}Recordings{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="card" style="margin-bottom:16px;padding:16px 20px">
+    <form method="get" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <input
+            type="text"
+            name="q"
+            value="{{ q }}"
+            placeholder="Search recordings..."
+            class="input-field"
+            style="flex:1;min-width:200px"
+        >
+        <select name="framework" class="input-field" style="min-width:140px">
+            <option value="">All Frameworks</option>
+            {% for fw in frameworks %}
+            <option value="{{ fw }}" {% if framework_filter == fw %}selected{% endif %}>{{ fw }}</option>
+            {% endfor %}
+        </select>
+        <select name="model" class="input-field" style="min-width:160px">
+            <option value="">All Models</option>
+            {% for m in models %}
+            <option value="{{ m }}" {% if model_filter == m %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+        <select name="status" class="input-field" style="min-width:120px">
+            <option value="">All Status</option>
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" style="
+            background:#6366f1;
+            color:white;
+            border:none;
+            border-radius:8px;
+            padding:8px 20px;
+            font-size:14px;
+            font-weight:500;
+            cursor:pointer;
+            transition:background 0.15s;
+        " onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#6366f1'">
+            Filter
+        </button>
+        {% if q or framework_filter or model_filter or status_filter %}
+        <a href="{% if is_tests_view is defined and is_tests_view %}/tests{% else %}/recordings{% endif %}" style="
+            color:#9ca3af;
+            font-size:13px;
+            text-decoration:none;
+        ">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Summary -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">
+    <span style="font-size:13px;color:#9ca3af">
+        {{ recordings|length }} of {{ total }} recording{{ 's' if total != 1 else '' }}
+        {% if q %} matching "{{ q }}"{% endif %}
+    </span>
+    {% if is_tests_view is defined and is_tests_view and pass_rate is defined %}
+    <span style="font-size:13px;color:#9ca3af">
+        Pass rate: <span style="color:{% if pass_rate >= 80 %}#4ade80{% elif pass_rate >= 50 %}#facc15{% else %}#f87171{% endif %};font-weight:600">{{ pass_rate }}%</span>
+    </span>
+    {% endif %}
+</div>
+
+<!-- Table -->
+<div class="card" style="padding:0;overflow:hidden">
+    {% if recordings %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Framework</th>
+                <th>Model</th>
+                <th>Status</th>
+                <th>Cost</th>
+                <th>Duration</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rec in recordings %}
+            <tr class="clickable" onclick="window.location='/recordings/{{ rec.id }}'">
+                <td style="font-family:monospace;font-size:12px;color:#6b7280">{{ rec.id[:8] }}</td>
+                <td style="font-weight:500;color:#f3f4f6">{{ rec.name or '(unnamed)' }}</td>
+                <td>
+                    {% if rec.framework %}
+                    <span class="badge badge-info">{{ rec.framework }}</span>
+                    {% else %}
+                    <span style="color:#6b7280">—</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;color:#9ca3af">{{ rec.model or '—' }}</td>
+                <td>
+                    {% if rec.status == 'success' %}
+                    <span class="badge badge-success">passed</span>
+                    {% elif rec.status == 'error' %}
+                    <span class="badge badge-error">failed</span>
+                    {% elif rec.status == 'timeout' %}
+                    <span class="badge badge-warning">timeout</span>
+                    {% elif rec.status == 'cancelled' %}
+                    <span class="badge badge-neutral">cancelled</span>
+                    {% else %}
+                    <span class="badge badge-neutral">{{ rec.status }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-family:monospace;font-size:13px">{{ format_cost(rec.cost) }}</td>
+                <td style="font-family:monospace;font-size:13px">{{ format_duration(rec.duration) }}</td>
+                <td style="font-size:13px;color:#9ca3af">{{ rec.created_at[:10] if rec.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    {% if total > per_page %}
+    <div style="padding:12px 16px;display:flex;justify-content:center;gap:8px;border-top:1px solid rgba(255,255,255,0.04)">
+        {% set total_pages = (total + per_page - 1) // per_page %}
+        {% if page_num > 1 %}
+        <a href="?page={{ page_num - 1 }}{% if q %}&q={{ q }}{% endif %}{% if framework_filter %}&framework={{ framework_filter }}{% endif %}{% if model_filter %}&model={{ model_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+           style="color:#9ca3af;text-decoration:none;font-size:13px;padding:4px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08)">&larr; Prev</a>
+        {% endif %}
+        <span style="font-size:13px;color:#6b7280;padding:4px 8px">Page {{ page_num }} of {{ total_pages }}</span>
+        {% if page_num < total_pages %}
+        <a href="?page={{ page_num + 1 }}{% if q %}&q={{ q }}{% endif %}{% if framework_filter %}&framework={{ framework_filter }}{% endif %}{% if model_filter %}&model={{ model_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+           style="color:#9ca3af;text-decoration:none;font-size:13px;padding:4px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08)">Next &rarr;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+        <h3>No recordings found</h3>
+        <p>{% if q or framework_filter or model_filter or status_filter %}Try adjusting your filters.{% else %}Record your first agent execution to see data here.{% endif %}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

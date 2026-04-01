@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}AgentProbe — {{ row.name or row.id[:12] }}{% endblock %}
+{% block page_title %}
+<a href="/recordings" style="color:#6b7280;text-decoration:none">&larr; Recordings</a>
+<span style="color:#4b5563;margin:0 8px">/</span>
+{{ row.name or row.id[:12] }}
+{% endblock %}
+
+{% block content %}
+<!-- Meta header -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">
+    <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:11px">Status</div>
+        {% if recording.output.status == 'success' %}
+        <span class="badge badge-success" style="margin-top:4px">Passed</span>
+        {% elif recording.output.status == 'error' %}
+        <span class="badge badge-error" style="margin-top:4px">Failed</span>
+        {% elif recording.output.status == 'timeout' %}
+        <span class="badge badge-warning" style="margin-top:4px">Timeout</span>
+        {% else %}
+        <span class="badge badge-neutral" style="margin-top:4px">{{ recording.output.status }}</span>
+        {% endif %}
+    </div>
+    <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:11px">Model</div>
+        <div style="font-size:14px;font-weight:500;margin-top:4px;color:#e5e7eb">{{ recording.environment.model or '—' }}</div>
+    </div>
+    <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:11px">Framework</div>
+        <div style="font-size:14px;font-weight:500;margin-top:4px;color:#e5e7eb">{{ recording.metadata.agent_framework or '—' }}</div>
+    </div>
+    <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:11px">Total Cost</div>
+        <div style="font-size:14px;font-weight:500;margin-top:4px;color:#e5e7eb;font-family:monospace">{{ format_cost(row.cost) }}</div>
+    </div>
+    <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:11px">Duration</div>
+        <div style="font-size:14px;font-weight:500;margin-top:4px;color:#e5e7eb;font-family:monospace">{{ format_duration(row.duration) }}</div>
+    </div>
+    <div class="card" style="padding:16px">
+        <div class="card-title" style="font-size:11px">Steps</div>
+        <div style="font-size:14px;font-weight:500;margin-top:4px;color:#e5e7eb">{{ recording.steps|length }}</div>
+    </div>
+</div>
+
+<!-- Input / Output -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <div class="card">
+        <div class="card-title">Input</div>
+        <div class="code-block" style="margin-top:8px">{{ recording.input.content if recording.input.content is string else (recording.input.content | tojson(indent=2)) }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Output</div>
+        <div class="code-block" style="margin-top:8px">{% if recording.output.error %}<span style="color:#f87171">Error: {{ recording.output.error }}</span>
+{% endif %}{{ recording.output.content if recording.output.content is string else (recording.output.content | tojson(indent=2)) }}</div>
+    </div>
+</div>
+
+<!-- Timeline -->
+{% if recording.steps %}
+<div class="card" style="margin-bottom:24px">
+    <div class="card-title" style="margin-bottom:12px">Execution Timeline</div>
+    {% set total_duration = recording.steps | map(attribute='duration_ms') | sum %}
+    <div class="timeline-bar">
+        {% for step in recording.steps %}
+        {% set width_pct = (step.duration_ms / total_duration * 100) if total_duration > 0 else (100 / recording.steps|length) %}
+        <div
+            class="timeline-segment {{ step.type }}"
+            style="width:{{ width_pct }}%"
+            title="Step {{ step.step_number }}: {{ step.type }} ({{ format_duration(step.duration_ms) }})"
+            onclick="document.getElementById('step-{{ step.step_number }}').scrollIntoView({behavior:'smooth',block:'center'})"
+        ></div>
+        {% endfor %}
+    </div>
+    <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af">
+            <div style="width:12px;height:12px;border-radius:3px;background:#6366f1"></div> LLM Call
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af">
+            <div style="width:12px;height:12px;border-radius:3px;background:#22c55e"></div> Tool Call
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af">
+            <div style="width:12px;height:12px;border-radius:3px;background:#14b8a6"></div> Tool Result
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af">
+            <div style="width:12px;height:12px;border-radius:3px;background:#f59e0b"></div> Decision
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af">
+            <div style="width:12px;height:12px;border-radius:3px;background:#ec4899"></div> Handoff
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af">
+            <div style="width:12px;height:12px;border-radius:3px;background:#8b5cf6"></div> Memory
+        </div>
+    </div>
+</div>
+
+<!-- Steps -->
+<div style="margin-bottom:24px">
+    <div style="font-size:13px;font-weight:500;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">
+        Steps ({{ recording.steps|length }})
+    </div>
+    {% for step in recording.steps %}
+    <div class="step-card" id="step-{{ step.step_number }}">
+        <div class="step-header" onclick="toggleStep(this)">
+            <div class="step-number" style="
+                background:{% if step.type == 'llm_call' %}rgba(99,102,241,0.15);color:#818cf8{% elif step.type == 'tool_call' %}rgba(34,197,94,0.15);color:#4ade80{% elif step.type == 'tool_result' %}rgba(20,184,166,0.15);color:#2dd4bf{% elif step.type == 'decision' %}rgba(245,158,11,0.15);color:#fbbf24{% elif step.type == 'handoff' %}rgba(236,72,153,0.15);color:#f472b6{% else %}rgba(139,92,246,0.15);color:#a78bfa{% endif %}
+            ">{{ step.step_number }}</div>
+            <div style="flex:1">
+                <div style="font-size:14px;font-weight:500;color:#e5e7eb">
+                    {{ step.type | replace('_', ' ') | title }}
+                    {% if step.type == 'llm_call' and step.llm_call %}
+                    <span style="font-weight:400;color:#6b7280;font-size:13px;margin-left:6px">{{ step.llm_call.model }}</span>
+                    {% endif %}
+                    {% if step.type == 'tool_call' and step.tool_call %}
+                    <span style="font-weight:400;color:#6b7280;font-size:13px;margin-left:6px">{{ step.tool_call.tool_name }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+                {% if step.type == 'llm_call' and step.llm_call %}
+                <span style="font-size:12px;color:#6b7280;font-family:monospace">{{ step.llm_call.input_tokens + step.llm_call.output_tokens }} tok</span>
+                <span style="font-size:12px;color:#6b7280;font-family:monospace">{{ format_cost(step.llm_call.cost_usd) }}</span>
+                {% endif %}
+                <span style="font-size:12px;color:#6b7280;font-family:monospace">{{ format_duration(step.duration_ms) }}</span>
+                <svg class="step-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" style="transition:transform 0.15s"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+        </div>
+        <div class="step-body" style="display:none">
+            {% if step.type == 'llm_call' and step.llm_call %}
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:12px 0">
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Model</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px">{{ step.llm_call.model }}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Input Tokens</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px;font-family:monospace">{{ step.llm_call.input_tokens }}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Output Tokens</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px;font-family:monospace">{{ step.llm_call.output_tokens }}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Cost</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px;font-family:monospace">{{ format_cost(step.llm_call.cost_usd) }}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Latency</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px;font-family:monospace">{{ format_duration(step.llm_call.latency_ms) }}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Cache Hit</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px">{{ 'Yes' if step.llm_call.cache_hit else 'No' }}</div>
+                </div>
+            </div>
+            {% if step.llm_call.output_message %}
+            <div style="margin-top:12px">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Response</div>
+                <div class="code-block">{% if step.llm_call.output_message.content is string %}{{ step.llm_call.output_message.content }}{% else %}{{ step.llm_call.output_message.content | tojson(indent=2) }}{% endif %}</div>
+            </div>
+            {% endif %}
+
+            {% elif step.type == 'tool_call' and step.tool_call %}
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:12px 0">
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Tool</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px;font-weight:500">{{ step.tool_call.tool_name }}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Success</div>
+                    <div style="margin-top:2px">
+                        {% if step.tool_call.success %}
+                        <span class="badge badge-success">Yes</span>
+                        {% else %}
+                        <span class="badge badge-error">No</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if step.tool_call.duration_ms %}
+                <div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Duration</div>
+                    <div style="font-size:13px;color:#d1d5db;margin-top:2px;font-family:monospace">{{ format_duration(step.tool_call.duration_ms) }}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% if step.tool_call.tool_input is not none %}
+            <div style="margin-top:12px">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Input</div>
+                <div class="code-block">{% if step.tool_call.tool_input is string %}{{ step.tool_call.tool_input }}{% else %}{{ step.tool_call.tool_input | tojson(indent=2) }}{% endif %}</div>
+            </div>
+            {% endif %}
+            {% if step.tool_call.tool_output is not none %}
+            <div style="margin-top:12px">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Output</div>
+                <div class="code-block">{% if step.tool_call.tool_output is string %}{{ step.tool_call.tool_output }}{% else %}{{ step.tool_call.tool_output | tojson(indent=2) }}{% endif %}</div>
+            </div>
+            {% endif %}
+            {% if step.tool_call.error %}
+            <div style="margin-top:12px">
+                <div style="font-size:11px;color:#f87171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Error</div>
+                <div class="code-block" style="border-color:rgba(239,68,68,0.2)"><span style="color:#f87171">{{ step.tool_call.error }}</span></div>
+            </div>
+            {% endif %}
+
+            {% elif step.type == 'tool_result' and step.tool_call %}
+            {% if step.tool_call.tool_output is not none %}
+            <div style="margin:12px 0">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Result from {{ step.tool_call.tool_name }}</div>
+                <div class="code-block">{% if step.tool_call.tool_output is string %}{{ step.tool_call.tool_output }}{% else %}{{ step.tool_call.tool_output | tojson(indent=2) }}{% endif %}</div>
+            </div>
+            {% endif %}
+
+            {% elif step.type == 'decision' and step.decision %}
+            <div style="margin:12px 0">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Type</div>
+                        <div style="font-size:13px;color:#d1d5db;margin-top:2px">{{ step.decision.type }}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Reason</div>
+                        <div style="font-size:13px;color:#d1d5db;margin-top:2px">{{ step.decision.reason or '—' }}</div>
+                    </div>
+                </div>
+                {% if step.decision.alternatives_considered %}
+                <div style="margin-top:12px">
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Alternatives Considered</div>
+                    <ul style="margin:0;padding-left:20px;color:#9ca3af;font-size:13px">
+                        {% for alt in step.decision.alternatives_considered %}
+                        <li>{{ alt }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div style="padding:12px 0;font-size:13px;color:#6b7280">No additional details for this step.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <h3>No steps recorded</h3>
+        <p>This recording has no execution steps.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Raw JSON toggle -->
+<div class="card" style="margin-bottom:24px">
+    <div class="card-title" style="cursor:pointer" onclick="
+        var el = document.getElementById('raw-json');
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    ">
+        Raw JSON
+        <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:8px">click to toggle</span>
+    </div>
+    <div id="raw-json" style="display:none;margin-top:12px">
+        <div class="code-block" style="max-height:500px;overflow-y:auto">{{ recording | tojson(indent=2) }}</div>
+    </div>
+</div>
+{% endblock %}

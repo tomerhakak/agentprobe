@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}AgentProbe — Overview{% endblock %}
+{% block page_title %}Overview{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+    <div class="card">
+        <div class="card-title">Total Recordings</div>
+        <div class="card-value">{{ stats.total_recordings }}</div>
+        <div class="card-sub">
+            {% if stats.earliest_recording %}since {{ stats.earliest_recording[:10] }}{% else %}no recordings yet{% endif %}
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">Pass Rate</div>
+        <div class="card-value" style="color:{% if pass_rate >= 80 %}#4ade80{% elif pass_rate >= 50 %}#facc15{% else %}#f87171{% endif %}">
+            {{ pass_rate }}%
+        </div>
+        <div class="card-sub">
+            {% set by_status = stats.get('by_status', {}) %}
+            {{ by_status.get('success', 0) }} passed / {{ stats.total_recordings }} total
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">Avg Cost</div>
+        <div class="card-value">{{ format_cost(stats.avg_cost_usd) }}</div>
+        <div class="card-sub">Total: {{ format_cost(stats.total_cost_usd) }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Avg Latency</div>
+        <div class="card-value">{{ format_duration(stats.avg_duration_ms) }}</div>
+        <div class="card-sub">Total: {{ format_duration(stats.total_duration_ms) }}</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <!-- Cost Trend -->
+    <div class="card">
+        <div class="card-title">Cost Trend</div>
+        <div class="chart-container">
+            {% if cost_over_time %}
+            {% set max_cost = cost_over_time|map(attribute='cost')|max if cost_over_time else 1 %}
+            {% set bar_count = cost_over_time|length %}
+            <svg width="100%" height="160" viewBox="0 0 {{ bar_count * 40 + 20 }} 160" preserveAspectRatio="xMinYEnd meet">
+                {% for entry in cost_over_time %}
+                {% set bar_height = (entry.cost / max_cost * 120) if max_cost > 0 else 0 %}
+                <rect
+                    x="{{ loop.index0 * 40 + 10 }}"
+                    y="{{ 140 - bar_height }}"
+                    width="28"
+                    height="{{ bar_height }}"
+                    rx="4"
+                    fill="#6366f1"
+                    opacity="0.8"
+                >
+                    <title>{{ entry.day }}: {{ format_cost(entry.cost) }} ({{ entry.count }} runs)</title>
+                </rect>
+                <text
+                    x="{{ loop.index0 * 40 + 24 }}"
+                    y="155"
+                    text-anchor="middle"
+                    fill="#6b7280"
+                    font-size="9"
+                >{{ entry.day[5:] }}</text>
+                {% endfor %}
+            </svg>
+            {% else %}
+            <div class="empty-state" style="padding:30px">
+                <p>No cost data yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="card">
+        <div class="card-title">Alerts</div>
+        <div style="margin-top:8px">
+            {% if alerts %}
+                {% for alert in alerts %}
+                <div class="alert alert-{{ alert.level }}">
+                    {% if alert.level == 'error' %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    {% elif alert.level == 'warning' %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    {% else %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    {% endif %}
+                    {{ alert.message }}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding:20px;text-align:center;color:#6b7280;font-size:14px">
+                    No alerts — everything looks good
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent Runs -->
+<div class="card">
+    <div class="card-title" style="margin-bottom:12px">Recent Runs</div>
+    {% if recent_runs %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Framework</th>
+                <th>Model</th>
+                <th>Status</th>
+                <th>Cost</th>
+                <th>Duration</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in recent_runs %}
+            <tr class="clickable" onclick="window.location='/recordings/{{ run.id }}'">
+                <td style="font-weight:500;color:#f3f4f6">{{ run.name or run.id[:12] }}</td>
+                <td>
+                    {% if run.framework %}
+                    <span class="badge badge-info">{{ run.framework }}</span>
+                    {% else %}
+                    <span style="color:#6b7280">—</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;color:#9ca3af">{{ run.model or '—' }}</td>
+                <td>
+                    {% if run.status == 'success' %}
+                    <span class="badge badge-success">passed</span>
+                    {% elif run.status == 'error' %}
+                    <span class="badge badge-error">failed</span>
+                    {% elif run.status == 'timeout' %}
+                    <span class="badge badge-warning">timeout</span>
+                    {% else %}
+                    <span class="badge badge-neutral">{{ run.status }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-family:monospace;font-size:13px">{{ format_cost(run.cost) }}</td>
+                <td style="font-family:monospace;font-size:13px">{{ format_duration(run.duration) }}</td>
+                <td style="font-size:13px;color:#9ca3af">{{ run.created_at[:10] if run.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+        <h3>No recordings yet</h3>
+        <p>Record your first agent execution to see data here.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
