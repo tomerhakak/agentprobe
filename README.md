@@ -278,6 +278,29 @@ Your Agent Code
 
 ## Installation
 
+### One-line install (recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tomerhakak/agentprobe/main/install.sh | bash
+```
+
+This will:
+- Check that Python 3.10+ is installed
+- Create an isolated environment at `~/.agentprobe/`
+- Install the latest AgentProbe release from GitHub
+- Add the `agentprobe` command to your PATH automatically
+- Works on macOS, Linux, and WSL
+
+After install, reload your shell and you're ready:
+```bash
+source ~/.zshrc   # or ~/.bashrc
+agentprobe init
+agentprobe test
+agentprobe platform start   # launch the local web dashboard
+```
+
+### With pip
+
 ```bash
 # Core
 pip install agentprobe
@@ -292,6 +315,14 @@ pip install agentprobe[dashboard]
 
 # Everything
 pip install agentprobe[all]
+```
+
+### From source
+
+```bash
+git clone https://github.com/tomerhakak/agentprobe.git
+cd agentprobe
+pip install -e ".[all]"
 ```
 
 ## AgentProbe Pro
