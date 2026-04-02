@@ -1,14 +1,23 @@
-"""Cost X-Ray — Per-step cost visualization with waste detection.
+"""X-Ray Mode -- Live Agent Visualization.
 
-Available in AgentProbe Pro. Learn more: https://agentprobe.dev/pro
+Renders a beautiful tree of how an agent thinks and acts, with per-step
+cost, token count, and timing.  Free tier feature.
 """
 
+from agentprobe.xray.visualizer import (
+    XRayAnalyzer,
+    XRayNode,
+    XRayResult,
+    XRaySummary,
+    format_xray_html,
+    format_xray_terminal,
+)
 
-class CostXRay:
-    """Per-step cost analysis — available in AgentProbe Pro."""
-
-    def analyze(self, *args, **kwargs):
-        raise NotImplementedError(
-            "Cost X-Ray is available in AgentProbe Pro. "
-            "Upgrade at https://agentprobe.dev/pro"
-        )
+__all__ = [
+    "XRayAnalyzer",
+    "XRayNode",
+    "XRayResult",
+    "XRaySummary",
+    "format_xray_html",
+    "format_xray_terminal",
+]
