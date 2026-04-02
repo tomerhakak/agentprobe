@@ -1,0 +1,80 @@
+###############################################################################
+# AgentProbe CI — Example workflow
+#
+# This workflow runs AgentProbe tests on every pull request and push to main.
+# Results are posted as a PR comment with pass/fail status, cost summary,
+# and assertion details.
+#
+# Required secrets:
+#   OPENAI_API_KEY      — if testing against OpenAI models
+#   ANTHROPIC_API_KEY   — if testing against Anthropic models
+#
+# The built-in GITHUB_TOKEN is used for PR comments (no extra setup needed).
+###############################################################################
+
+name: AgentProbe Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      cost-limit:
+        description: 'Maximum cost per run in USD'
+        required: false
+        default: '5.0'
+      model:
+        description: 'Model to test against'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  AGENTPROBE_CI: 'true'
+
+jobs:
+  agentprobe:
+    name: Agent Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run AgentProbe
+        id: agentprobe
+        uses: tomerhakak/agentprobe@v1
+        with:
+          test-dir: 'tests/'
+          cost-limit: ${{ github.event.inputs.cost-limit || '5.0' }}
+          fail-on-warning: 'false'
+          model: ${{ github.event.inputs.model || '' }}
+          # assertions: 'cost_under,latency_under,no_hallucination'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentprobe-results
+          path: agentprobe-reports/
+          retention-days: 30
+
+      # Optional: use outputs in downstream steps
+      - name: Print summary
+        if: always()
+        run: |
+          echo "Result:   ${{ steps.agentprobe.outputs.result }}"
+          echo "Tests:    ${{ steps.agentprobe.outputs.total-tests }}"
+          echo "Passed:   ${{ steps.agentprobe.outputs.passed-tests }}"
+          echo "Failed:   ${{ steps.agentprobe.outputs.failed-tests }}"
+          echo "Rate:     ${{ steps.agentprobe.outputs.pass-rate }}%"
+          echo "Cost:     $${{ steps.agentprobe.outputs.total-cost }}"

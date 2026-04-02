@@ -1,0 +1,105 @@
+name: 'AgentProbe — AI Agent Testing'
+description: 'Run AgentProbe tests on your AI agent codebase. Posts pass/fail results, cost summaries, and assertion details as PR comments.'
+author: 'AgentProbe Team'
+
+branding:
+  icon: 'check-circle'
+  color: 'purple'
+
+inputs:
+  test-dir:
+    description: 'Directory containing AgentProbe test files'
+    required: false
+    default: 'tests/'
+  assertions:
+    description: 'Comma-separated list of assertions to run (e.g. "cost_under,latency_under,no_hallucination"). Leave empty to run all.'
+    required: false
+    default: ''
+  cost-limit:
+    description: 'Maximum total cost per run in USD. The action fails if this budget is exceeded.'
+    required: false
+    default: '5.0'
+  fail-on-warning:
+    description: 'Whether to fail the action when tests produce warnings (true/false).'
+    required: false
+    default: 'false'
+  model:
+    description: 'Which model to test against (e.g. "gpt-4o", "claude-sonnet-4-6"). Uses the project default when empty.'
+    required: false
+    default: ''
+  github-token:
+    description: 'GitHub token for posting PR comments. Defaults to the built-in GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
+  agentprobe-version:
+    description: 'Pin a specific AgentProbe version (e.g. "0.2.0"). Leave empty for latest.'
+    required: false
+    default: ''
+  python-version:
+    description: 'Python version to use.'
+    required: false
+    default: '3.11'
+  extra-dependencies:
+    description: 'Additional pip packages to install (space-separated).'
+    required: false
+    default: ''
+
+outputs:
+  result:
+    description: '"pass" or "fail"'
+  total-tests:
+    description: 'Total number of tests executed'
+  passed-tests:
+    description: 'Number of tests that passed'
+  failed-tests:
+    description: 'Number of tests that failed'
+  pass-rate:
+    description: 'Pass rate as a percentage (e.g. "95.0")'
+  total-cost:
+    description: 'Total cost in USD (e.g. "0.042300")'
+  total-duration-ms:
+    description: 'Total duration in milliseconds'
+  exit-code:
+    description: 'Exit code of the test run (0 = success)'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+
+    - name: Install AgentProbe
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        if [ -n "${{ inputs.agentprobe-version }}" ]; then
+          pip install "agentprobe==${{ inputs.agentprobe-version }}"
+        else
+          pip install agentprobe
+        fi
+        if [ -n "${{ inputs.extra-dependencies }}" ]; then
+          pip install ${{ inputs.extra-dependencies }}
+        fi
+        # Install project dependencies if present
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+        if [ -f pyproject.toml ]; then
+          pip install -e ".[dev]" 2>/dev/null || true
+        fi
+
+    - name: Run AgentProbe tests
+      id: agentprobe
+      shell: bash
+      env:
+        INPUT_TEST-DIR: ${{ inputs.test-dir }}
+        INPUT_ASSERTIONS: ${{ inputs.assertions }}
+        INPUT_COST-LIMIT: ${{ inputs.cost-limit }}
+        INPUT_FAIL-ON-WARNING: ${{ inputs.fail-on-warning }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_GITHUB-TOKEN: ${{ inputs.github-token }}
+      run: |
+        python -m agentprobe.ci.github_action
