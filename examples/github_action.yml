@@ -1,0 +1,125 @@
+# =============================================================================
+# AgentProbe GitHub Action — Test AI Agents on Every PR
+# =============================================================================
+#
+# This workflow runs your agent test suite on every pull request and posts
+# a summary comment with cost, latency, and quality metrics.
+#
+# Setup:
+#   1. Add your LLM API key as a repository secret (e.g., OPENAI_API_KEY)
+#   2. Copy this file to .github/workflows/agentprobe.yml
+#   3. Push — AgentProbe will run automatically on the next PR
+#
+# Docs: https://agentprobe.dev/docs/ci
+# =============================================================================
+
+name: AgentProbe — AI Agent Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Prevent concurrent runs on the same PR to save LLM costs
+concurrency:
+  group: agentprobe-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Simple setup — run all agent tests
+  # ---------------------------------------------------------------------------
+  test-agents:
+    name: Test AI Agents
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install agentprobe
+          pip install -r requirements.txt
+
+      - name: Run AgentProbe tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          agentprobe test --ci
+
+      # Post results as a PR comment (cost, latency, pass/fail)
+      - name: Post results to PR
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          agentprobe ci report --github-pr ${{ github.event.pull_request.number }}
+
+  # ---------------------------------------------------------------------------
+  # Advanced — cost limits, security scan, model comparison
+  # ---------------------------------------------------------------------------
+  advanced-tests:
+    name: Advanced Agent Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install agentprobe[all]
+          pip install -r requirements.txt
+
+      # Run tests with a hard cost ceiling — the job fails if total LLM
+      # spend exceeds the limit.  Prevents runaway costs from bad prompts.
+      - name: Run with cost limit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          agentprobe test \
+            --ci \
+            --cost-limit 2.00 \
+            --fail-on-cost-exceeded
+
+      # Run prompt-injection fuzzing against your agent
+      - name: Security scan
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          agentprobe security scan \
+            --module prompt-injection \
+            --fail-on-critical
+
+      # Compare the PR's agent against the main branch version
+      - name: Regression check
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          agentprobe test \
+            --ci \
+            --compare-baseline main \
+            --fail-on-regression
+
+      # Post a detailed report as a PR comment
+      - name: Post advanced report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          agentprobe ci report \
+            --github-pr ${{ github.event.pull_request.number }} \
+            --include cost,latency,security,regression
