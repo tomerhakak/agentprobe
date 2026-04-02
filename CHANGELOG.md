@@ -5,6 +5,17 @@ All notable changes to AgentProbe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-04-02
+
+### Added
+- 🔥 Agent Roast: funny brutal analysis with 450 jokes, 3 severity levels (mild/medium/savage)
+- 🔬 X-Ray Mode: live tree visualization of agent thinking with per-step costs
+- 💰 Cost Calculator: true cost projections (daily/monthly/yearly) + savings recommendations
+- 🏥 Health Check: 5-dimension scoring (reliability, speed, cost, security, quality)
+- 🎮 Injection Playground: 55 prompt injection attacks across 5 categories
+- 🏆 Leaderboard: SQLite-backed agent rankings with composite scoring and sparkline trends
+- ⚖️ Model Comparator: side-by-side model comparison with winner detection
+
 ## [0.3.0] - 2026-04-02
 
 ### Added

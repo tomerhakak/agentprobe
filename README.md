@@ -154,14 +154,56 @@ Forensic failure analysis. Automatic root-cause detection: infinite loops, cost 
 <tr>
 <td width="50%" valign="top">
 
-### 🔍 X-Ray <sup>Pro</sup>
-Token-level cost attribution. See exactly which step, which tool call, which LLM request is burning your budget.
+### 🔍 X-Ray
+Token-level cost attribution. See exactly which step, which tool call, which LLM request is burning your budget. Beautiful tree visualization.
 
 </td>
 <td width="50%" valign="top">
 
 ### 📋 Compliance <sup>Pro</sup>
 **53 automated checks** across SOC2, HIPAA, GDPR, PCI-DSS, and CCPA. Generate audit-ready reports.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🔥 Agent Roast
+Get a brutally honest (and funny) analysis of your agent. 450 jokes, 3 severity levels. *"Your agent spends money like a drunk sailor at a token store."*
+
+</td>
+<td width="50%" valign="top">
+
+### 💰 Cost Calculator
+Find out what your agent REALLY costs. Per-run, monthly, yearly projections. Model comparison with savings recommendations.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🏥 Health Check
+5-dimension health score (reliability, speed, cost, security, quality) with progress bars and actionable tips.
+
+</td>
+<td width="50%" valign="top">
+
+### 🎮 Injection Playground
+**55 prompt injection attacks** across 5 categories. Test your agent's defenses interactively.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🏆 Leaderboard
+Rank your agents by composite score. Track improvements over time. SQLite-backed, fully local.
+
+</td>
+<td width="50%" valign="top">
+
+### ⚖️ Model Comparator
+Side-by-side model comparison. Cost, speed, quality, hallucination rate. Crown emoji for the winner.
 
 </td>
 </tr>
@@ -289,6 +331,13 @@ agentprobe test       Run agent tests (pytest-compatible)
 agentprobe replay     Replay a recording with a different model or config
 agentprobe fuzz       Fuzz your agent with prompt injections & edge cases
 agentprobe scan       Security scan — PII detection, injection resistance
+agentprobe roast      Get a funny brutal analysis of your agent
+agentprobe xray       Visualize agent thinking step-by-step
+agentprobe health     5-dimension health check with scores
+agentprobe cost       Calculate true cost projections & savings
+agentprobe compare    Side-by-side model comparison
+agentprobe playground Interactive prompt injection lab (55 attacks)
+agentprobe leaderboard Rank and track your agents over time
 agentprobe analyze    Cost breakdown, drift detection, failure clustering
 agentprobe platform   Launch the local web dashboard (localhost:9700)
 agentprobe init       Scaffold config file and example tests
@@ -347,10 +396,16 @@ Traces, cost breakdowns, assertion results, drift detection, and failure analysi
 <tr><td><strong>PII Detection (27 types)</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
 <tr><td><strong>Basic Fuzzing</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
 <tr><td><strong>Local Dashboard</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🔥 Agent Roast (450 jokes)</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🔬 X-Ray Visualization</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>💰 Cost Calculator & Projections</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🏥 Health Check (5 dimensions)</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🎮 Injection Playground (55 attacks)</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🏆 Agent Leaderboard</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>⚖️ Model Comparator</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
 <tr><td colspan="3"></td></tr>
 <tr><td><strong>⚔️ Agent Battle Arena</strong></td><td align="center">-</td><td align="center">✅</td></tr>
 <tr><td><strong>🔬 Agent Autopsy</strong></td><td align="center">-</td><td align="center">✅</td></tr>
-<tr><td><strong>🔍 Cost X-Ray</strong></td><td align="center">-</td><td align="center">✅</td></tr>
 <tr><td><strong>📋 Compliance (53 checks)</strong></td><td align="center">-</td><td align="center">✅</td></tr>
 <tr><td><strong>🛡️ Security Scorer (71 checks)</strong></td><td align="center">-</td><td align="center">✅</td></tr>
 <tr><td><strong>🧠 Agent Benchmark (6D)</strong></td><td align="center">-</td><td align="center">✅</td></tr>
