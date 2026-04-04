@@ -1,6 +1,6 @@
 """AgentProbe — pytest for AI Agents. Test, record, replay, and monitor AI agents locally."""
 
-__version__ = "0.1.0"
+__version__ = "0.5.0"
 
 from agentprobe.core.models import AgentRecording, AgentStep, Message, ToolDefinition
 from agentprobe.core.recorder import record, Recorder

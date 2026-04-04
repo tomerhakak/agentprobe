@@ -1060,6 +1060,453 @@ cli.add_command(roast_command, "roast")
 
 
 # ---------------------------------------------------------------------------
+# timeline (Time Travel Debugger)
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("recording")
+@click.option("--interactive", "-i", is_flag=True, help="Launch interactive TUI debugger.")
+@click.option("--breakpoint-tool", "-bt", multiple=True, help="Break on tool name.")
+@click.option("--breakpoint-cost", "-bc", default=None, type=float, help="Break on cumulative cost threshold.")
+def timeline(recording: str, interactive: bool, breakpoint_tool: tuple, breakpoint_cost: float | None) -> None:
+    """Time-travel through an agent recording step by step.
+
+    Navigate forward/backward through execution, set breakpoints,
+    inspect tool I/O and LLM prompts at each position.
+    """
+    rec = _load_recording(recording)
+    if not rec:
+        return
+
+    from agentprobe.timeline.debugger import TimelineDebugger
+
+    dbg = TimelineDebugger(rec)
+
+    for tool_name in breakpoint_tool:
+        bp = dbg.add_breakpoint_tool(tool_name)
+        console.print(f"[dim]Breakpoint #{bp.id}: tool == {tool_name!r}[/dim]")
+    if breakpoint_cost is not None:
+        bp = dbg.add_breakpoint_cost(breakpoint_cost)
+        console.print(f"[dim]Breakpoint #{bp.id}: cost >= ${breakpoint_cost:.4f}[/dim]")
+
+    if interactive:
+        _timeline_interactive(dbg)
+    else:
+        # Non-interactive: show full timeline overview
+        console.print(Panel(
+            f"[bold]Recording:[/bold] {rec.metadata.name}\n"
+            f"[bold]Steps:[/bold]     {len(rec.steps)}\n"
+            f"[bold]Cost:[/bold]      {_format_cost(rec.total_cost)}\n"
+            f"[bold]Duration:[/bold]  {_format_duration(rec.total_duration)}\n\n"
+            f"[bold]Timeline:[/bold]\n{dbg.render_timeline_bar()}\n\n"
+            + "\n".join(dbg.render_step_label(i) for i in range(min(len(rec.steps), 30))),
+            title="[bold magenta]\u23f3 Time Travel Debugger[/bold magenta]",
+            border_style="magenta",
+        ))
+
+
+def _timeline_interactive(dbg) -> None:
+    """Simple interactive timeline session."""
+    console.print(Panel(
+        "[bold]Commands:[/bold] n=next, p=prev, g N=goto, r=run, b=back, q=quit\n"
+        "          t=next tool, l=next llm, e=next error, i=inspect, s=snapshot",
+        title="[bold magenta]\u23f3 Interactive Timeline[/bold magenta]",
+        border_style="magenta",
+    ))
+    while True:
+        state = dbg.current()
+        console.print(f"\n{dbg.render_timeline_bar()}")
+        console.print(dbg.render_step_label())
+        if state.hit_breakpoints:
+            for bp in state.hit_breakpoints:
+                console.print(f"  [red]\u23f8 Breakpoint #{bp.id}: {bp.condition}[/red]")
+
+        try:
+            cmd = click.prompt("timeline", type=str, default="n").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        if cmd == "q":
+            break
+        elif cmd == "n":
+            dbg.step_forward()
+        elif cmd == "p":
+            dbg.step_back()
+        elif cmd.startswith("g "):
+            try:
+                pos = int(cmd.split()[1])
+                dbg.goto(pos)
+            except (ValueError, IndexError):
+                console.print("[red]Usage: g <position>[/red]")
+        elif cmd == "r":
+            dbg.run()
+        elif cmd == "b":
+            dbg.run_back()
+        elif cmd == "t":
+            dbg.next_tool()
+        elif cmd == "l":
+            dbg.next_llm()
+        elif cmd == "e":
+            dbg.next_error()
+        elif cmd == "i":
+            import json as _json
+            console.print(RichJSON(_json.dumps(dbg.inspect_step(), indent=2, default=str)))
+        elif cmd == "s":
+            import json as _json
+            console.print(RichJSON(_json.dumps(dbg.snapshot(), indent=2, default=str)))
+        else:
+            console.print("[dim]Unknown command. Use n/p/g/r/b/t/l/e/i/s/q[/dim]")
+
+
+# ---------------------------------------------------------------------------
+# dna (Agent Behavioral Fingerprinting)
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("recording")
+@click.option("--compare", "-c", default=None, help="Compare with another recording.")
+@click.option("--json-output", is_flag=True, help="Output as JSON.")
+def dna(recording: str, compare: str | None, json_output: bool) -> None:
+    """Generate a behavioral DNA fingerprint for an agent.
+
+    Shows unique behavioral traits, tool usage patterns, and a
+    visual DNA helix representation.
+    """
+    rec = _load_recording(recording)
+    if not rec:
+        return
+
+    from agentprobe.dna.fingerprint import AgentDNA
+
+    engine = AgentDNA()
+    fp = engine.fingerprint(rec)
+
+    if compare:
+        rec2 = _load_recording(compare)
+        if not rec2:
+            return
+        fp2 = engine.fingerprint(rec2)
+        cmp = engine.compare(fp, fp2)
+
+        if json_output:
+            console.print(RichJSON(json.dumps(cmp.to_dict(), indent=2)))
+        else:
+            console.print(Panel(
+                engine.render_comparison(cmp),
+                title="[bold green]\U0001f9ec DNA Comparison[/bold green]",
+                border_style="green",
+            ))
+    else:
+        if json_output:
+            console.print(RichJSON(json.dumps(fp.to_dict(), indent=2)))
+        else:
+            console.print(Panel(
+                engine.render_helix(fp),
+                title="[bold green]\U0001f9ec Agent DNA Fingerprint[/bold green]",
+                border_style="green",
+            ))
+
+
+# ---------------------------------------------------------------------------
+# chaos (Chaos Engineering)
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("recording")
+@click.option("--scenario", "-s", multiple=True, help="Specific scenario name(s) to run.")
+@click.option("--max-scenarios", "-n", default=5, help="Maximum scenarios to run (free tier: 5).")
+@click.option("--seed", default=None, type=int, help="Random seed for reproducibility.")
+@click.option("--json-output", is_flag=True, help="Output as JSON.")
+def chaos(recording: str, scenario: tuple, max_scenarios: int, seed: int | None, json_output: bool) -> None:
+    """Run chaos engineering scenarios against an agent recording.
+
+    Injects failures, latency, and adversarial conditions to test
+    agent resilience.
+    """
+    rec = _load_recording(recording)
+    if not rec:
+        return
+
+    from agentprobe.chaos.engine import ChaosEngine
+
+    engine = ChaosEngine(seed=seed)
+    scenario_names = list(scenario) if scenario else None
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("\U0001f300 Running chaos scenarios...", total=None)
+        result = engine.run(rec, scenarios=scenario_names, max_scenarios=max_scenarios)
+        progress.update(task, completed=True)
+
+    if json_output:
+        console.print(RichJSON(json.dumps(result.to_dict(), indent=2)))
+    else:
+        console.print(Panel(
+            engine.render_report(result),
+            title="[bold red]\U0001f300 Chaos Engineering[/bold red]",
+            border_style="red",
+        ))
+
+
+# ---------------------------------------------------------------------------
+# coverage (Agent Path Coverage)
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.option("--path", "-p", default=None, help="Path to recordings directory.")
+@click.option("--json-output", is_flag=True, help="Output as JSON.")
+def coverage(path: str | None, json_output: bool) -> None:
+    """Generate an agent path coverage report.
+
+    Analyzes all recordings to determine which tools, branches, and
+    execution patterns have been tested.
+    """
+    cfg = _load_config()
+    rec_dir = Path(path or cfg.recording.storage_dir)
+    if not rec_dir.exists():
+        console.print(f"[red]Recordings directory not found:[/red] {rec_dir}")
+        return
+
+    rec_paths = sorted(rec_dir.glob("**/*.aprobe"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not rec_paths:
+        console.print("[yellow]No recordings found.[/yellow]")
+        return
+
+    from agentprobe.coverage.tracker import CoverageTracker
+
+    tracker = CoverageTracker()
+    loaded = 0
+    for p in rec_paths:
+        try:
+            rec = AgentRecording.load(p)
+            tracker.add(rec)
+            loaded += 1
+        except Exception:
+            continue
+
+    if loaded == 0:
+        console.print("[yellow]Could not load any recordings.[/yellow]")
+        return
+
+    report = tracker.report()
+
+    if json_output:
+        console.print(RichJSON(json.dumps(report.to_dict(), indent=2)))
+    else:
+        console.print(Panel(
+            tracker.render_report(report),
+            title="[bold blue]\U0001f4ca Agent Coverage[/bold blue]",
+            border_style="blue",
+        ))
+
+
+# ---------------------------------------------------------------------------
+# snapshot
+# ---------------------------------------------------------------------------
+
+@cli.command("snapshot")
+@click.argument("recording")
+@click.option("--name", "-n", default=None, help="Snapshot name (defaults to recording name).")
+@click.option("--update", "-u", is_flag=True, help="Force update the snapshot.")
+@click.option("--list-all", is_flag=True, help="List all snapshots.")
+def snapshot_cmd(recording: str, name: str | None, update: bool, list_all: bool) -> None:
+    """Capture or compare behavioral snapshots.
+
+    Like Jest snapshots but for agent behavior — detects regressions
+    in output, tool usage, cost, and decision patterns.
+    """
+    from agentprobe.snapshot.manager import SnapshotManager
+
+    mgr = SnapshotManager()
+
+    if list_all:
+        snaps = mgr.list_snapshots()
+        if snaps:
+            table = Table(title="Saved Snapshots")
+            table.add_column("Name")
+            for s in snaps:
+                table.add_row(s)
+            console.print(table)
+        else:
+            console.print("[yellow]No snapshots found.[/yellow]")
+        return
+
+    rec = _load_recording(recording)
+    if not rec:
+        return
+
+    snap_name = name or rec.metadata.name or rec.metadata.id[:8]
+
+    if update:
+        result = mgr.update(snap_name, rec)
+    else:
+        result = mgr.assert_snapshot(snap_name, rec)
+
+    console.print(Panel(
+        mgr.render_result(result),
+        title="[bold yellow]\U0001f4f8 Snapshot Test[/bold yellow]",
+        border_style="yellow",
+    ))
+
+    if result.has_breaking_diffs:
+        console.print("\n[red]Snapshot has breaking changes![/red] Use --update to accept.")
+        raise SystemExit(1)
+
+
+# ---------------------------------------------------------------------------
+# optimize
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("recording")
+@click.option("--runs-per-day", default=100, type=int, help="Estimated runs per day for projections.")
+@click.option("--json-output", is_flag=True, help="Output as JSON.")
+def optimize(recording: str, runs_per_day: int, json_output: bool) -> None:
+    """Analyze an agent recording for token & cost optimizations.
+
+    Identifies wasted tokens, recommends cheaper models, caching
+    opportunities, and projects monthly savings.
+    """
+    rec = _load_recording(recording)
+    if not rec:
+        return
+
+    from agentprobe.optimizer.engine import PromptOptimizer
+
+    optimizer = PromptOptimizer(runs_per_day=runs_per_day)
+    report = optimizer.analyze(rec)
+
+    if json_output:
+        console.print(RichJSON(json.dumps(report.to_dict(), indent=2)))
+    else:
+        console.print(Panel(
+            optimizer.render_report(report),
+            title="[bold cyan]\U0001f680 Token Optimizer[/bold cyan]",
+            border_style="cyan",
+        ))
+
+
+# ---------------------------------------------------------------------------
+# watch
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.option("--health", is_flag=True, help="Auto-run health check on changes.")
+@click.option("--roast", is_flag=True, help="Auto-run roast on changes.")
+@click.option("--xray", is_flag=True, help="Auto-run X-ray on changes.")
+@click.option("--interval", default=1.0, type=float, help="Poll interval in seconds.")
+def watch(health: bool, roast: bool, xray: bool, interval: float) -> None:
+    """Watch for file changes and auto-run tests.
+
+    Like nodemon for AI agents — monitors recordings and test files,
+    automatically re-running analyses when changes are detected.
+    """
+    from agentprobe.watch.watcher import AgentWatcher, WatchConfig, WatchEvent
+
+    cfg = _load_config()
+    watch_cfg = WatchConfig(
+        recording_dirs=[cfg.recording.storage_dir],
+        test_dirs=[cfg.testing.test_dir],
+        poll_interval_s=interval,
+        auto_run_health=health,
+        auto_run_roast=roast,
+        auto_run_xray=xray,
+    )
+
+    watcher = AgentWatcher(config=watch_cfg)
+
+    @watcher.on_event
+    def on_change(event: WatchEvent):
+        console.print(AgentWatcher.render_event(event))
+        if watch_cfg.auto_run_tests:
+            console.print("[dim]   Re-running tests...[/dim]")
+
+    console.print(Panel(
+        AgentWatcher.render_banner(watch_cfg),
+        title="[bold magenta]\U0001f440 Watch Mode[/bold magenta]",
+        border_style="magenta",
+    ))
+
+    try:
+        watcher.start()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Watch mode stopped.[/yellow]")
+
+
+# ---------------------------------------------------------------------------
+# nltest (Natural Language Test Writer)
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("descriptions", nargs=-1, required=True)
+@click.option("--name", "-n", default="test_agent", help="Test function name.")
+@click.option("--output", "-o", default=None, help="Output file path.")
+@click.option("--preview", is_flag=True, help="Preview generated code without writing.")
+def nltest(descriptions: tuple, name: str, output: str | None, preview: bool) -> None:
+    """Generate tests from natural language descriptions.
+
+    Write test requirements in plain English and get executable
+    pytest-compatible code.
+
+    Examples:
+
+        agentprobe nltest "respond in under 5 seconds" "cost below $0.10"
+
+        agentprobe nltest "call the search tool" "no PII in output" -o tests/test_gen.py
+    """
+    from agentprobe.nltest.generator import NLTestGenerator
+
+    gen = NLTestGenerator()
+    test = gen.generate_test(name, list(descriptions))
+
+    console.print(Panel(
+        gen.render_test(test),
+        title="[bold green]\U0001f9ea NL Test Generator[/bold green]",
+        border_style="green",
+    ))
+
+    if test.unmatched:
+        console.print(f"\n[yellow]\u26a0 {len(test.unmatched)} description(s) could not be auto-translated.[/yellow]")
+
+    if output and not preview:
+        content = gen.write_test_file(output, [test])
+        console.print(f"\n[green]Test written to:[/green] {output}")
+    elif not preview:
+        console.print("\n[dim]Use --output/-o to write to a file, or --preview to just see the code.[/dim]")
+
+
+# ---------------------------------------------------------------------------
+# Recording loader helper
+# ---------------------------------------------------------------------------
+
+def _load_recording(path_or_name: str) -> AgentRecording | None:
+    """Load a recording by path or search by name."""
+    rec_path = Path(path_or_name)
+    if rec_path.exists():
+        try:
+            return AgentRecording.load(rec_path)
+        except Exception as e:
+            console.print(f"[red]Failed to load recording:[/red] {e}")
+            return None
+
+    cfg = _load_config()
+    candidates = list(Path(cfg.recording.storage_dir).glob(f"**/*{path_or_name}*"))
+    if candidates:
+        try:
+            return AgentRecording.load(candidates[0])
+        except Exception as e:
+            console.print(f"[red]Failed to load recording:[/red] {e}")
+            return None
+
+    console.print(f"[red]Recording not found:[/red] {path_or_name}")
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 

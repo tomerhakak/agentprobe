@@ -5,6 +5,18 @@ All notable changes to AgentProbe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-04-04
+
+### Added
+- **Timeline** — Time Travel Debugger: step forward/backward through agent execution, set breakpoints on tools/cost/errors, inspect state at each point, interactive TUI mode (`agentprobe timeline`)
+- **DNA** — Agent Behavioral Fingerprinting: generate unique multi-dimensional behavioral fingerprints, detect drift, compare agents, visual DNA helix rendering (`agentprobe dna`)
+- **Chaos** — Chaos Engineering for Agents: 12 built-in chaos scenarios (tool timeouts, LLM hallucinations, cascading failures, cost spikes), resilience scoring, recovery analysis (`agentprobe chaos`)
+- **Coverage** — Agent Path Coverage: track tool coverage, branch coverage, step pattern diversity, error path testing across recordings — like code coverage for AI agents (`agentprobe coverage`)
+- **Snapshot** — Snapshot Testing: capture and compare behavioral snapshots (output, tools, cost, patterns) to detect regressions — like Jest snapshots for agents (`agentprobe snapshot`)
+- **Optimizer** — Token & Prompt Optimization: detect wasted tokens, recommend model downgrades, identify caching opportunities, project monthly savings (`agentprobe optimize`)
+- **Watch** — Live Monitoring Mode: auto-run tests when recordings or test files change — like nodemon for AI agents (`agentprobe watch`)
+- **NLTest** — Natural Language Test Writer: write tests in plain English, auto-translate to executable pytest code with proper assertions (`agentprobe nltest`)
+
 ## [0.4.0] - 2026-04-02
 
 ### Added

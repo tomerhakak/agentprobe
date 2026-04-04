@@ -207,6 +207,62 @@ Side-by-side model comparison. Cost, speed, quality, hallucination rate. Crown e
 
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top">
+
+### ⏳ Timeline <sup>NEW</sup>
+Time-travel debugger for agent execution. Step forward/backward, set breakpoints on tools/cost/errors, inspect state at every point. Interactive TUI mode.
+
+</td>
+<td width="50%" valign="top">
+
+### 🧬 Agent DNA <sup>NEW</sup>
+Behavioral fingerprinting. Generate a unique multi-dimensional DNA profile for any agent. Detect drift, compare identities, visual helix rendering.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🌀 Chaos Engineering <sup>NEW</sup>
+12 built-in chaos scenarios: tool timeouts, LLM hallucinations, cascading failures, cost explosions. Resilience scoring with recovery analysis.
+
+</td>
+<td width="50%" valign="top">
+
+### 📊 Agent Coverage <sup>NEW</sup>
+Like code coverage, but for agents. Track tool coverage, branch coverage, step pattern diversity, and error path testing across recordings.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 📸 Snapshot Testing <sup>NEW</sup>
+Jest-style snapshots for agent behavior. Capture output, tools, cost, and patterns — automatically detect regressions on re-runs.
+
+</td>
+<td width="50%" valign="top">
+
+### 🚀 Token Optimizer <sup>NEW</sup>
+Automatic optimization analysis. Detects wasted tokens, recommends model downgrades, identifies caching opportunities, projects monthly savings.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 👀 Watch Mode <sup>NEW</sup>
+Auto-run tests when files change. Like nodemon for AI agents — monitors recordings and test files, triggers analysis on save.
+
+</td>
+<td width="50%" valign="top">
+
+### 🧪 NL Test Writer <sup>NEW</sup>
+Write tests in plain English: *"respond in under 5 seconds"*, *"cost below $0.10"*. Auto-translates to executable pytest code.
+
+</td>
+</tr>
 </table>
 
 ---
@@ -342,6 +398,14 @@ agentprobe analyze    Cost breakdown, drift detection, failure clustering
 agentprobe platform   Launch the local web dashboard (localhost:9700)
 agentprobe init       Scaffold config file and example tests
 agentprobe diff       Compare two recordings or agent versions
+agentprobe timeline   Time-travel debugger — step through execution
+agentprobe dna        Generate behavioral DNA fingerprint
+agentprobe chaos      Run chaos engineering scenarios
+agentprobe coverage   Agent path coverage report
+agentprobe snapshot   Capture/compare behavioral snapshots
+agentprobe optimize   Token & cost optimization analysis
+agentprobe watch      Auto-run tests on file changes
+agentprobe nltest     Generate tests from plain English
 ```
 
 Run `agentprobe --help` for the full list.
@@ -403,6 +467,14 @@ Traces, cost breakdowns, assertion results, drift detection, and failure analysi
 <tr><td><strong>🎮 Injection Playground (55 attacks)</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
 <tr><td><strong>🏆 Agent Leaderboard</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
 <tr><td><strong>⚖️ Model Comparator</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>⏳ Timeline (Time Travel Debugger)</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🧬 Agent DNA (Behavioral Fingerprinting)</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🌀 Chaos Engineering (12 scenarios)</strong></td><td align="center">✅ (5 max)</td><td align="center">✅</td></tr>
+<tr><td><strong>📊 Agent Path Coverage</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>📸 Snapshot Testing</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🚀 Token Optimizer</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>👀 Watch Mode</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
+<tr><td><strong>🧪 NL Test Writer</strong></td><td align="center">✅</td><td align="center">✅</td></tr>
 <tr><td colspan="3"></td></tr>
 <tr><td><strong>⚔️ Agent Battle Arena</strong></td><td align="center">-</td><td align="center">✅</td></tr>
 <tr><td><strong>🔬 Agent Autopsy</strong></td><td align="center">-</td><td align="center">✅</td></tr>
@@ -489,6 +561,69 @@ result = replayer.replay(
     config=ReplayConfig(mock_llm=mock_llm, tool_mocks={"search_orders": mock_search}),
 )
 # Zero API calls. Zero cost. Deterministic.
+```
+
+### Time-travel through execution
+
+```python
+from agentprobe.timeline import TimelineDebugger
+
+dbg = TimelineDebugger(recording)
+dbg.add_breakpoint_tool("web_search")
+dbg.add_breakpoint_cost(0.10)
+
+state = dbg.step_forward()    # advance one step
+state = dbg.run()             # run until breakpoint
+print(state.cumulative_cost)  # $0.0847
+print(dbg.render_timeline_bar())
+# ██▒██▒▒▒▼██▒◆██
+```
+
+### Chaos-test your agent
+
+```python
+from agentprobe.chaos import ChaosEngine
+
+engine = ChaosEngine(seed=42)
+result = engine.run(recording)
+print(f"Resilience: {result.resilience_score:.0f}/100 ({result.grade})")
+# Resilience: 73/100 (B)
+# Recommendations: Add retry logic for tool failures
+```
+
+### Write tests in English
+
+```bash
+agentprobe nltest \
+  "respond in under 5 seconds" \
+  "cost below $0.10" \
+  "call the search tool at least once" \
+  "no PII in output" \
+  -o tests/test_generated.py
+```
+
+```python
+# Auto-generated:
+def test_agent(recording):
+    assertions.latency_below(recording, max_ms=5000)
+    assertions.cost_below(recording, max_cost_usd=0.10)
+    assertions.called_tool(recording, tool_name="search")
+    assertions.no_pii_in_output(recording)
+```
+
+### Agent DNA fingerprinting
+
+```python
+from agentprobe.dna import AgentDNA
+
+dna = AgentDNA()
+fp = dna.fingerprint(recording)
+print(fp.signature)  # "CeSp-VbTf-DeDp"
+print(dna.render_helix(fp))
+# 🧬 Agent DNA Helix
+#  💬 verbosity        ████████████░░░░░░░░ 0.62
+#  🧰 tool_diversity   ██████████████░░░░░░ 0.71
+#  ⚡ speed            ████████████████░░░░ 0.83
 ```
 
 See more in the [`examples/`](examples/) directory.
